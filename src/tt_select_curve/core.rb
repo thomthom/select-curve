@@ -1,61 +1,66 @@
-#-----------------------------------------------------------------------------
-# Compatible: SketchUp 7 (PC)
-#             (other versions untested)
-#-----------------------------------------------------------------------------
-#
-# CHANGELOG
-# 1.0.0 - 22.09.2010
-#		 * Initial release.
-#
-#-----------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 #
 # Thomas Thomassen
 # thomas[at]thomthom[dot]net
 #
-#-----------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 
 require 'sketchup.rb'
-require 'TT_Lib2/core.rb'
+begin
+  require 'TT_Lib2/core.rb'
+rescue LoadError => e
+  module TT
+    if @lib2_update.nil?
+      url = 'http://www.thomthom.net/software/sketchup/tt_lib2/errors/not-installed'
+      options = {
+        :dialog_title => 'TT_Lib² Not Installed',
+        :scrollable => false, :resizable => false, :left => 200, :top => 200
+      }
+      w = UI::WebDialog.new( options )
+      w.set_size( 500, 300 )
+      w.set_url( "#{url}?plugin=#{File.basename( __FILE__ )}" )
+      w.show
+      @lib2_update = w
+    end
+  end
+end
 
-TT::Lib.compatible?('2.4.0', 'TT SelectCurve')
 
-#-----------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
+
+if defined?( TT::Lib ) && TT::Lib.compatible?( '2.7.0', 'Select Curve' )
 
 module TT::Plugins::SelectCurve  
   
-  ### CONSTANTS ### --------------------------------------------------------
   
-  VERSION = '1.0.0'
+  ### MENU & TOOLBARS ### ------------------------------------------------------
   
-  
-  ### MENU & TOOLBARS ### --------------------------------------------------
-  
-  unless file_loaded?( File.basename(__FILE__) )
-    # Paths
-    path = File.dirname( __FILE__ )
-    res_path = File.join( path, 'TT_SelectCurve' )
-    
+  unless file_loaded?( __FILE__ )   
     # Commands
-    c_select_curve = UI::Command.new('Select Curve') { 
+    cmd = UI::Command.new('Select Curve') { 
       self.select_curve_tool
     }
-    c_select_curve.small_icon = File.join( res_path, 'select_curve_16.png' )
-    c_select_curve.large_icon = File.join( res_path, 'select_curve_24.png' )
-    c_select_curve.tooltip = 'Select Curves'
-    c_select_curve.status_bar_text = 'Select sets of connected visible edges.'
+    cmd.small_icon = File.join( PATH_ICONS, 'select_curve_16.png' )
+    cmd.large_icon = File.join( PATH_ICONS, 'select_curve_24.png' )
+    cmd.tooltip = 'Select Curves'
+    cmd.status_bar_text = 'Select sets of connected visible edges.'
+    c_select_curve = cmd
     
     # Menus
     m = TT.menu('Tools')
     m.add_item( c_select_curve )
-    
-    #Toolbars
-    toolbar = UI::Toolbar.new('Select Curve')
-    toolbar = toolbar.add_item( c_select_curve )
-    toolbar.show if toolbar.get_last_state == TB_VISIBLE
+
+    # Toolbar
+    toolbar = UI::Toolbar.new( PLUGIN_NAME )
+    toolbar.add_item( c_select_curve )
+    unless toolbar.get_last_state == TB_HIDDEN
+      toolbar.restore
+      UI.start_timer( 0.1, false ) { toolbar.restore } # SU bug 2902434
+    end
   end
   
   
-  ### MAIN SCRIPT ### ------------------------------------------------------
+  ### MAIN SCRIPT ### ----------------------------------------------------------
   
   def self.select_curve_tool
     Sketchup.active_model.tools.push_tool( SelectCurveTool.new(@settings) )
@@ -162,14 +167,42 @@ module TT::Plugins::SelectCurve
   end # class SelectCurveTool
   
   
-  ### DEBUG ### ------------------------------------------------------------
+  ### DEBUG ### ----------------------------------------------------------------
   
-  def self.reload
+  # @note Debug method to reload the plugin.
+  #
+  # @example
+  #   TT::Plugins::Template.reload
+  #
+  # @param [Boolean] tt_lib Reloads TT_Lib2 if +true+.
+  #
+  # @return [Integer] Number of files reloaded.
+  # @since 1.0.0
+  def self.reload( tt_lib = false )
+    original_verbose = $VERBOSE
+    $VERBOSE = nil
+    TT::Lib.reload if tt_lib
+    # Core file (this)
     load __FILE__
+    # Supporting files
+    if defined?( PATH ) && File.exist?( PATH )
+      x = Dir.glob( File.join(PATH, '*.{rb,rbs}') ).each { |file|
+        load file
+      }
+      x.length + 1
+    else
+      1
+    end
+  ensure
+    $VERBOSE = original_verbose
   end
-  
+
 end # module
 
-#-----------------------------------------------------------------------------
-file_loaded( File.basename(__FILE__) )
-#-----------------------------------------------------------------------------
+end # if TT_Lib
+
+#-------------------------------------------------------------------------------
+
+file_loaded( __FILE__ )
+
+#-------------------------------------------------------------------------------

@@ -25,6 +25,7 @@ module TT
   FILENAMESPACE = File.basename( __FILE__, '.rb' )
   PATH_ROOT     = File.dirname( __FILE__ ).freeze
   PATH          = File.join( PATH_ROOT, FILENAMESPACE ).freeze
+  PATH_ICONS    = File.join( PATH, 'icons' ).freeze
   
   
   ### EXTENSION ### ------------------------------------------------------------
